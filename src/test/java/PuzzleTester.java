@@ -35,12 +35,16 @@ public class PuzzleTester {
 
         long elapsed = System.nanoTime();
 
-        for (PuzzleMap step : solution) {
-            System.out.println(step);
-            System.out.println("------------------------------");
+        if (solution == null) {
+            System.out.println("unable to solve the puzzle !!!");
+        } else {
+            for (PuzzleMap step : solution) {
+                System.out.println(step);
+                System.out.println("------------------------------");
+            }
+            System.out.println("total moves = " + (solution.size() - 1));
         }
 
-        System.out.println("total moves = " + (solution.size() - 1));
         System.out.println("time = " + (TimeUnit.NANOSECONDS.toMillis(elapsed - start)) + " ms");
     }
 }

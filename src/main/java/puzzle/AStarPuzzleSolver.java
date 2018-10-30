@@ -55,7 +55,7 @@ final class AStarPuzzleSolver extends AbstractHeuristicPuzzleSolver {
             epoch += algorithm.epsilon;
         }
 
-        return new ArrayDeque<>();
+        return null;
     }
 
     @Override
@@ -103,7 +103,7 @@ final class AStarPuzzleSolver extends AbstractHeuristicPuzzleSolver {
                 epoch += (selection.size() * algorithm.epsilon);
             }
 
-            return new ArrayDeque<>();
+            return null;
         } finally {
             executorService.shutdown();
         }
