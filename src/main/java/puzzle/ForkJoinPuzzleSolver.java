@@ -92,7 +92,7 @@ final class ForkJoinPuzzleSolver implements HeuristicPuzzleSolver {
 
             List<PuzzleMap> neighbours = new ArrayList<>();
 
-            Set<Piece> pieces = puzzle.getPieces();
+            Set<Piece> pieces = puzzle.movablePieces();
             for (Piece piece : pieces) {
                 for (MoveStrategy strategy : MoveStrategy.values()) {
                     try {

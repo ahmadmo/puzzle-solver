@@ -29,7 +29,7 @@ abstract class AbstractHeuristicPuzzleSolver implements HeuristicPuzzleSolver {
         }
 
         Stream<PuzzleMap> neighbours() {
-            return puzzle.getPieces().stream()
+            return puzzle.movablePieces().stream()
                     .flatMap(piece -> Arrays.stream(MoveStrategy.values())
                             .map(strategy -> move(piece, strategy))
                             .filter(Objects::nonNull));

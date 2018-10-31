@@ -9,17 +9,17 @@ public final class PuzzleMap {
 
     static final class Border {
 
+        private enum Position {
+            TOP, BOTTOM, LEFT, RIGHT
+        }
+
         static final char EXIT_LABEL = 'Z';
 
-        private final char[] top;
-        private final char[] left;
-        private final char[] right;
-        private final char[] bottom;
+        private final char[][] chars = new char[Position.values().length][];
+        private final List<int[]> exitPositions = new ArrayList<>();
 
         private final int width;
         private final int height;
-
-        private final List<int[]> exitPositions;
 
         Border(char[] top, char[] left, char[] right, char[] bottom) {
             if (top.length <= 2) {
@@ -36,48 +36,39 @@ public final class PuzzleMap {
                 throw new IllegalArgumentException("left.length != right.length");
             }
 
-            this.top = top;
-            this.left = left;
-            this.right = right;
-            this.bottom = bottom;
+            chars[Position.TOP.ordinal()] = top;
+            chars[Position.BOTTOM.ordinal()] = bottom;
+            chars[Position.LEFT.ordinal()] = left;
+            chars[Position.RIGHT.ordinal()] = right;
 
             width = top.length;
             height = left.length + 2;
 
-            exitPositions = new ArrayList<>();
-
             for (int x = 0; x < width; x++) {
-                if (isExitTop(x)) {
+                if (isExit(x, Position.TOP)) {
                     exitPositions.add(new int[]{x - 1, -1});
                 }
-                if (isExitBottom(x)) {
+                if (isExit(x, Position.BOTTOM)) {
                     exitPositions.add(new int[]{x - 1, height - 2});
                 }
             }
             for (int y = 0; y < height - 2; y++) {
-                if (isExitLeft(y)) {
+                if (isExit(y, Position.LEFT)) {
                     exitPositions.add(new int[]{-1, y});
                 }
-                if (isExitRight(y)) {
+                if (isExit(y, Position.RIGHT)) {
                     exitPositions.add(new int[]{width - 2, y});
                 }
             }
         }
 
-        private boolean isExitTop(int x) {
-            return x > 0 && x < top.length && top[x] == EXIT_LABEL;
+        private char[] at(Position position) {
+            return chars[position.ordinal()];
         }
 
-        private boolean isExitBottom(int x) {
-            return x > 0 && x < bottom.length && bottom[x] == EXIT_LABEL;
-        }
-
-        private boolean isExitLeft(int y) {
-            return y > 0 && y < left.length && left[y] == EXIT_LABEL;
-        }
-
-        private boolean isExitRight(int y) {
-            return y > 0 && y < right.length && right[y] == EXIT_LABEL;
+        private boolean isExit(int i, Position position) {
+            char[] border = chars[position.ordinal()];
+            return i > 0 && i < border.length && border[i] == EXIT_LABEL;
         }
     }
 
@@ -156,54 +147,36 @@ public final class PuzzleMap {
 
     private int rowIndex(Piece piece, int deltaY, int len) throws BadMoveException {
         int y = piece.y + deltaY;
-        if (y < 0) {
-            if (piece.type.isMain) {
-                for (int x = 0; x < piece.type.width; x++) {
-                    if (!border.isExitTop(piece.x + x + 1)) {
-                        throw BadMoveException.hitBorder();
-                    }
-                }
-                return -1;
-            }
-            throw BadMoveException.hitBorder();
-        } else if (y >= len) {
-            if (piece.type.isMain) {
-                for (int x = 0; x < piece.type.width; x++) {
-                    if (!border.isExitBottom(piece.x + x + 1)) {
-                        throw BadMoveException.hitBorder();
-                    }
-                }
-                return -1;
-            }
-            throw BadMoveException.hitBorder();
+        if (y >= 0 && y < len) {
+            return y;
         }
-        return y;
+        Border.Position position = y < 0 ? Border.Position.TOP : Border.Position.BOTTOM;
+        if (piece.type.isMain) {
+            for (int x = 0; x < piece.type.width; x++) {
+                if (!border.isExit(piece.x + x + 1, position)) {
+                    throw BadMoveException.hitBorder();
+                }
+            }
+            return -1;
+        }
+        throw BadMoveException.hitBorder();
     }
 
     private int columnIndex(Piece piece, int deltaX, int len) throws BadMoveException {
         int x = piece.x + deltaX;
-        if (x < 0) {
-            if (piece.type.isMain) {
-                for (int y = 0; y < piece.type.height; y++) {
-                    if (!border.isExitLeft(piece.y + y)) {
-                        throw BadMoveException.hitBorder();
-                    }
-                }
-                return -1;
-            }
-            throw BadMoveException.hitBorder();
-        } else if (x >= len) {
-            if (piece.type.isMain) {
-                for (int y = 0; y < piece.type.height; y++) {
-                    if (!border.isExitRight(piece.y + y)) {
-                        throw BadMoveException.hitBorder();
-                    }
-                }
-                return -1;
-            }
-            throw BadMoveException.hitBorder();
+        if (x >= 0 && x < len) {
+            return x;
         }
-        return x;
+        Border.Position position = x < 0 ? Border.Position.LEFT : Border.Position.RIGHT;
+        if (piece.type.isMain) {
+            for (int y = 0; y < piece.type.height; y++) {
+                if (!border.isExit(piece.y + y, position)) {
+                    throw BadMoveException.hitBorder();
+                }
+            }
+            return -1;
+        }
+        throw BadMoveException.hitBorder();
     }
 
     private boolean checkPuzzleState() {
@@ -221,22 +194,71 @@ public final class PuzzleMap {
     private String renderMap() {
         StringBuilder sb = new StringBuilder();
         sb.append(title).append("\n\n");
-        sb.append(border.top).append('\n');
+        sb.append(border.at(Border.Position.TOP)).append('\n');
         for (int i = 0; i < puzzle.length; i++) {
-            sb.append(border.left[i]);
+            sb.append(border.at(Border.Position.LEFT)[i]);
             Character[] row = puzzle[i];
             for (Character cell : row) {
                 sb.append(cell == null ? ' ' : cell);
             }
-            sb.append(border.right[i]);
+            sb.append(border.at(Border.Position.RIGHT)[i]);
             sb.append('\n');
         }
-        sb.append(border.bottom);
+        sb.append(border.at(Border.Position.BOTTOM));
         return sb.toString();
     }
 
-    Set<Piece> getPieces() {
-        return Collections.unmodifiableSet(pieces);
+    Set<Piece> movablePieces() {
+        Map<String, Piece> pieceMap = new HashMap<>();
+        for (int y = 0; y < puzzle.length; y++) {
+            Character[] row = puzzle[y];
+            for (int x = 0; x < row.length; x++) {
+                Character cell = row[x];
+                if (cell == null) {
+                    mapPieceAt(x - 1, y, pieceMap);
+                    mapPieceAt(x + 1, y, pieceMap);
+                    mapPieceAt(x, y - 1, pieceMap);
+                    mapPieceAt(x, y + 1, pieceMap);
+                }
+            }
+        }
+        for (int[] position : border.exitPositions) {
+            int x = position[0];
+            int y = position[1];
+            mapPieceAt(x - 1, y, pieceMap);
+            mapPieceAt(x + 1, y, pieceMap);
+            mapPieceAt(x, y - 1, pieceMap);
+            mapPieceAt(x, y + 1, pieceMap);
+        }
+        return new HashSet<>(pieceMap.values());
+    }
+
+    private void mapPieceAt(int x, int y, Map<String, Piece> pieceMap) {
+        if (y < 0 || y >= puzzle.length) return;
+        if (x < 0 || x >= puzzle[0].length) return;
+
+        Character label = puzzle[y][x];
+        if (label == null) return;
+
+        String key = String.valueOf(y) + x;
+        if (pieceMap.containsKey(key)) return;
+
+        for (Piece piece : pieces) {
+            if (piece.type.label == label) {
+                for (int w = 0; w < piece.type.width; w++) {
+                    if (piece.x + w == x) {
+                        for (int h = 0; h < piece.type.height; h++) {
+                            if (piece.y + h == y) {
+                                pieceMap.put(key, piece);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        throw new IllegalStateException();
     }
 
     double estimatedDistanceToGoal(HeuristicAlgorithm algorithm) {
