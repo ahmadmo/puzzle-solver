@@ -12,7 +12,7 @@ public final class HeuristicPuzzleSolverFactory {
         return new AStarPuzzleSolver();
     }
 
-    public static HeuristicPuzzleSolver getForkJoinPuzzleSolver(double neighbourExploreFactor) {
-        return new ForkJoinPuzzleSolver(neighbourExploreFactor);
+    public static HeuristicPuzzleSolver getForkJoinPuzzleSolver() {
+        return new ForkJoinPuzzleSolver();
     }
 }

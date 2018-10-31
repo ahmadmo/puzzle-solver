@@ -11,18 +11,13 @@ import java.util.concurrent.RecursiveTask;
  */
 final class ForkJoinPuzzleSolver implements HeuristicPuzzleSolver {
 
-    private final double neighbourExploreFactor;
-
-    ForkJoinPuzzleSolver(double neighbourExploreFactor) {
-        if (neighbourExploreFactor > 1) {
-            throw new IllegalArgumentException();
-        }
-        this.neighbourExploreFactor = neighbourExploreFactor;
-    }
-
     private static final class Solution {
 
         private Deque<PuzzleMap> path;
+
+        boolean isSolved() {
+            return path != null;
+        }
 
         int size() {
             return path == null ? Integer.MAX_VALUE : path.size();
@@ -90,7 +85,7 @@ final class ForkJoinPuzzleSolver implements HeuristicPuzzleSolver {
                 return solution.addFirst(puzzle);
             }
 
-            List<PuzzleMap> neighbours = new ArrayList<>();
+            PriorityQueue<PuzzleMap> neighbours = new PriorityQueue<>(new PuzzleComparator(algorithm));
 
             Set<Piece> pieces = puzzle.movablePieces();
             for (Piece piece : pieces) {
@@ -103,27 +98,26 @@ final class ForkJoinPuzzleSolver implements HeuristicPuzzleSolver {
                 }
             }
 
-            neighbours.sort(new PuzzleComparator(algorithm));
-
-            int threshold = (int) Math.ceil(neighbours.size() * neighbourExploreFactor);
-            List<SearchTask> tasks = new ArrayList<>(threshold);
-
-            for (Iterator<PuzzleMap> it = neighbours.iterator(); threshold > 0 && it.hasNext(); threshold--) {
-                SearchTask task = new SearchTask(it.next(), algorithm, context);
-                tasks.add(task);
-                task.fork();
-            }
-
-            Solution best = new Solution();
-            for (SearchTask task : tasks) {
-                Solution subSolution = task.join();
-                if (subSolution.size() < best.size()) {
-                    best = subSolution;
+            while (neighbours.size() > 0) {
+                List<SearchTask> tasks = new ArrayList<>();
+                for (int i = 0; i < 2 && neighbours.size() > 0; i++) {
+                    SearchTask task = new SearchTask(neighbours.poll(), algorithm, context);
+                    tasks.add(task);
+                    task.fork();
                 }
-            }
 
-            if (best.size() != Integer.MAX_VALUE) {
-                solution.copy(best).addFirst(puzzle);
+                Solution best = new Solution();
+                for (SearchTask task : tasks) {
+                    Solution subSolution = task.join();
+                    if (subSolution.size() < best.size()) {
+                        best = subSolution;
+                    }
+                }
+
+                if (best.isSolved()) {
+                    solution.copy(best).addFirst(puzzle);
+                    break;
+                }
             }
 
             return solution;
