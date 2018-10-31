@@ -209,39 +209,36 @@ public final class PuzzleMap {
     }
 
     Set<Piece> movablePieces() {
-        Map<String, Piece> pieceMap = new HashMap<>();
+        Set<Piece> result = new HashSet<>();
         for (int y = 0; y < puzzle.length; y++) {
             Character[] row = puzzle[y];
             for (int x = 0; x < row.length; x++) {
                 Character cell = row[x];
                 if (cell == null) {
-                    mapPieceAt(x - 1, y, pieceMap);
-                    mapPieceAt(x + 1, y, pieceMap);
-                    mapPieceAt(x, y - 1, pieceMap);
-                    mapPieceAt(x, y + 1, pieceMap);
+                    findPieceAt(x - 1, y, result);
+                    findPieceAt(x + 1, y, result);
+                    findPieceAt(x, y - 1, result);
+                    findPieceAt(x, y + 1, result);
                 }
             }
         }
         for (int[] position : border.exitPositions) {
             int x = position[0];
             int y = position[1];
-            mapPieceAt(x - 1, y, pieceMap);
-            mapPieceAt(x + 1, y, pieceMap);
-            mapPieceAt(x, y - 1, pieceMap);
-            mapPieceAt(x, y + 1, pieceMap);
+            findPieceAt(x - 1, y, result);
+            findPieceAt(x + 1, y, result);
+            findPieceAt(x, y - 1, result);
+            findPieceAt(x, y + 1, result);
         }
-        return new HashSet<>(pieceMap.values());
+        return result;
     }
 
-    private void mapPieceAt(int x, int y, Map<String, Piece> pieceMap) {
+    private void findPieceAt(int x, int y, Set<Piece> result) {
         if (y < 0 || y >= puzzle.length) return;
         if (x < 0 || x >= puzzle[0].length) return;
 
         Character label = puzzle[y][x];
         if (label == null) return;
-
-        String key = String.valueOf(y) + x;
-        if (pieceMap.containsKey(key)) return;
 
         for (Piece piece : pieces) {
             if (piece.type.label == label) {
@@ -249,7 +246,7 @@ public final class PuzzleMap {
                     if (piece.x + w == x) {
                         for (int h = 0; h < piece.type.height; h++) {
                             if (piece.y + h == y) {
-                                pieceMap.put(key, piece);
+                                result.add(piece);
                                 return;
                             }
                         }
