@@ -20,10 +20,8 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
         final PuzzleMap puzzle;
         final double h;
 
-        volatile Node parent;
-        volatile double g = Integer.MAX_VALUE;
-        volatile double epoch = 1;
-        volatile boolean closed;
+        Node parent;
+        double g = Integer.MAX_VALUE;
 
         Node(PuzzleMap puzzle, HeuristicAlgorithm algorithm) {
             this.puzzle = puzzle;
@@ -31,7 +29,7 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
         }
 
         double f() {
-            return h * epoch + g;
+            return h + g;
         }
 
         Stream<PuzzleMap> neighbours() {
@@ -132,31 +130,22 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
         }
     }
 
-    private List<QueueCommand> processNeighbour(Node current, Node neighbour,
-                                                HeuristicAlgorithm algorithm, double epoch) {
+    private Stream<QueueCommand> processNeighbour(Node current, Node neighbour, HeuristicAlgorithm algorithm) {
         double cost = current.g + algorithm.epsilon;
-        boolean notOpen = false;
-        List<QueueCommand> commands = new ArrayList<>(2);
-        if (cost < neighbour.g) {
-            neighbour.closed = false;
-            notOpen = true;
-            commands.add(new RemoveNode(neighbour));
+        if (cost >= neighbour.g) {
+            return Stream.empty();
         }
-        if (notOpen && !neighbour.closed) {
-            neighbour.g = cost;
-            neighbour.epoch = epoch;
-            neighbour.parent = current;
-            commands.add(new AddNode(neighbour));
-        }
-        return commands;
+        neighbour.g = cost;
+        neighbour.parent = current;
+        return Stream.of(new RemoveNode(neighbour), new AddNode(neighbour));
     }
 
     private Stream<QueueCommand> processNeighbours(Map<PuzzleMap, Node> cache, Node node,
-                                                   HeuristicAlgorithm algorithm, double epoch) {
+                                                   HeuristicAlgorithm algorithm) {
         return node.neighbours()
                 .flatMap(puzzle -> {
                     Node neighbour = cache.computeIfAbsent(puzzle, k -> new Node(puzzle, algorithm));
-                    return processNeighbour(node, neighbour, algorithm, epoch).stream();
+                    return processNeighbour(node, neighbour, algorithm);
                 });
     }
 
@@ -168,11 +157,9 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
     public Deque<PuzzleMap> solve(PuzzleMap start, HeuristicAlgorithm algorithm) {
         Map<PuzzleMap, Node> cache = new HashMap<>();
         PriorityQueue<Node> open = new PriorityQueue<>();
-        double epoch = 1;
 
         Node startNode = new Node(start, algorithm);
         startNode.g = 0;
-        startNode.epoch = epoch;
 
         cache.put(start, startNode);
         open.add(startNode);
@@ -182,10 +169,8 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
             if (node.puzzle.isSolved) {
                 return node.buildPath();
             }
-            node.closed = true;
-            Stream<QueueCommand> commands = processNeighbours(cache, node, algorithm, epoch);
+            Stream<QueueCommand> commands = processNeighbours(cache, node, algorithm);
             executeQueueCommands(open, commands);
-            epoch += algorithm.epsilon;
         }
 
         return null;
@@ -197,11 +182,9 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
 
         ConcurrentMap<PuzzleMap, Node> cache = new ConcurrentHashMap<>();
         PriorityQueue<Node> open = new PriorityQueue<>();
-        double epoch = 1;
 
         Node startNode = new Node(start, algorithm);
         startNode.g = 0;
-        startNode.epoch = epoch;
 
         cache.put(start, startNode);
         open.add(startNode);
@@ -219,22 +202,14 @@ final class AStarPuzzleSolver implements HeuristicPuzzleSolver {
                     selection.add(node);
                 }
 
-                final double e = epoch;
-
                 List<QueueCommand> commands = fjp.submit(() ->
                         IntStream.range(0, selection.size())
                                 .parallel()
-                                .mapToObj(i -> {
-                                    Node node = selection.get(i);
-                                    double t = e + (i * algorithm.epsilon);
-                                    return processNeighbours(cache, node, algorithm, t);
-                                })
+                                .mapToObj(i -> processNeighbours(cache, selection.get(i), algorithm))
                                 .flatMap(Function.identity())
                                 .collect(Collectors.toList())).get();
 
                 executeQueueCommands(open, commands.stream());
-
-                epoch += (selection.size() * algorithm.epsilon);
             }
 
             return null;
